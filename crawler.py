@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, Iterable, Iterator, List, Optional
 from urllib.parse import urlparse
 
@@ -56,6 +59,26 @@ def _extract_head_metadata(page) -> tuple[str, str]:
     )
 
 
+@lru_cache(maxsize=1)
+def ensure_chromium_installed() -> None:
+    """Install Chromium runtime once if it is not available in the environment."""
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            browser.close()
+            return
+    except Exception:
+        pass
+
+    # Fallback for hosted environments (for example Streamlit Cloud).
+    subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def crawl_urls(
     urls: Iterable[str],
     delay_per_domain_seconds: float = 2.0,
@@ -83,8 +106,17 @@ def crawl_urls_iter(
 
     normalized_urls = [normalize_url(u) for u in urls if (u or "").strip()]
 
+    ensure_chromium_installed()
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+            ],
+        )
         context_kwargs = {}
         if user_agent:
             context_kwargs["user_agent"] = user_agent

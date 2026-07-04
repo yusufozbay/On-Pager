@@ -104,36 +104,44 @@ if uploaded_file is not None:
 
         results = []
         total = len(urls)
-        for i, row in enumerate(
-            crawl_urls_iter(
-                urls,
-                delay_per_domain_seconds=delay_per_domain,
-                timeout_ms=int(timeout_ms),
-                user_agent=user_agent.strip() or None,
-            ),
-            start=1,
-        ):
-            results.append(row)
-            status_text.write(f"Crawled {i}/{total}: {row.url}")
-            progress.progress(i / total)
-
-            table_placeholder.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "URL Address": r.url,
-                            "Meta Title": r.meta_title,
-                            "Meta Description": r.meta_description,
-                            "HTTP Status": r.status,
-                            "Error": r.error,
-                        }
-                        for r in results
-                    ]
+        try:
+            for i, row in enumerate(
+                crawl_urls_iter(
+                    urls,
+                    delay_per_domain_seconds=delay_per_domain,
+                    timeout_ms=int(timeout_ms),
+                    user_agent=user_agent.strip() or None,
                 ),
-                use_container_width=True,
-            )
+                start=1,
+            ):
+                results.append(row)
+                status_text.write(f"Crawled {i}/{total}: {row.url}")
+                progress.progress(i / total)
 
-        status_text.write("Crawling completed.")
+                table_placeholder.dataframe(
+                    pd.DataFrame(
+                        [
+                            {
+                                "URL Address": r.url,
+                                "Meta Title": r.meta_title,
+                                "Meta Description": r.meta_description,
+                                "HTTP Status": r.status,
+                                "Error": r.error,
+                            }
+                            for r in results
+                        ]
+                    ),
+                    use_container_width=True,
+                )
+
+            status_text.write("Crawling completed.")
+        except Exception as exc:
+            st.error(
+                "Crawler initialization failed. "
+                "Please rerun once while Chromium is being prepared. "
+                f"Details: {exc}"
+            )
+            st.stop()
 
         output_df = pd.DataFrame(
             [
